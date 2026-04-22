@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>subnetting-gym</title>
+    <style>
+        :root {
+            /* Material Design 3 Dark Theme - Vanilla CSS */
+            --bg-color: #1a1c1e;
+            --surface: #2d3033;
+            --on-surface: #e2e2e6;
+            --primary: #d1e4ff;
+            --on-primary: #003258;
+            --secondary: #bfc8d4;
+            --tertiary: #d6bee4;
+            --surface-variant: #43474e;
+            --on-surface-variant: #c3c7cf;
+            --outline: #8d9199;
+        }
+
+        body {
+            /* System font stack for Material look without external dependencies */
+            font-family: 'Roboto', 'Segoe UI', 'San Francisco', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--on-surface);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 540px;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border-radius: 28px;
+            padding: 32px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--surface-variant);
+        }
+
+        header {
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--surface-variant);
+        }
+
+        h1 {
+            font-weight: 300;
+            font-size: 28px;
+            margin: 0;
+            color: var(--primary);
+            letter-spacing: -0.5px;
+        }
+
+        .author {
+            font-size: 11px;
+            color: var(--on-surface-variant);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 500;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .question-box {
+            min-height: 140px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+        }
+
+        .question-text {
+            font-size: 20px;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        .answer-box {
+            background-color: var(--surface-variant);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 32px;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.2s ease-in;
+        }
+
+        .answer-box.visible {
+            display: block;
+            opacity: 1;
+        }
+
+        .answer-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--tertiary);
+            margin-bottom: 8px;
+            display: block;
+            font-weight: 600;
+        }
+
+        .answer-text {
+            font-size: 22px;
+            font-weight: 500;
+            word-break: break-all;
+            color: var(--on-surface);
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 14px 24px;
+            border-radius: 100px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            flex: 1;
+            outline: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--on-primary);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.97);
+            filter: brightness(0.9);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--primary);
+            border: 1px solid var(--outline);
+        }
+
+        .btn-secondary:active {
+            background-color: rgba(209, 228, 255, 0.1);
+        }
+
+        @media (max-width: 480px) {
+            .controls {
+                flex-direction: column-reverse;
+            }
+            .card {
+                padding: 24px;
+            }
+            .question-text {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <header>
+            <h1>subnetting-gym</h1>
+            <span class="author">spinning-tree</span>
+        </header>
+
+        <div class="question-box">
+            <div id="question" class="question-text">Generando reto...</div>
+        </div>
+
+        <div id="answer-container" class="answer-box">
+            <span class="answer-label">Respuesta Correcta</span>
+            <div id="answer" class="answer-text"></div>
+        </div>
+
+        <div class="controls">
+            <button id="show-btn" class="btn btn-secondary">Revelar respuesta</button>
+            <button id="next-btn" class="btn btn-primary">Siguiente</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const utils = {
+        ipToLong(ip) {
+            return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+        },
+        longToIp(long) {
+            return [(long >>> 24) & 255, (long >>> 16) & 255, (long >>> 8) & 255, long & 255].join('.');
+        },
+        getMask(prefix) {
+            return (0xFFFFFFFF << (32 - prefix)) >>> 0;
+        },
+        getWildcard(prefix) {
+            return ~this.getMask(prefix) >>> 0;
+        },
+        getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        },
+        getRandomIp() {
+            const ranges = [
+                {s: '10.0.0.0', e: '10.255.255.255'},
+                {s: '172.16.0.0', e: '172.31.255.255'},
+                {s: '192.168.0.0', e: '192.168.255.255'}
+            ];
+            const r = ranges[this.getRandomInt(0, 2)];
+            return this.longToIp(this.getRandomInt(this.ipToLong(r.s), this.ipToLong(r.e)));
+        },
+        getNetwork(ipLong, prefix) {
+            return (ipLong & this.getMask(prefix)) >>> 0;
+        },
+        getBroadcast(ipLong, prefix) {
+            return (this.getNetwork(ipLong, prefix) | this.getWildcard(prefix)) >>> 0;
+        },
+        getOrdinal(n) {
+            const s = ["th", "st", "nd", "rd"], v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        }
+    };
+
+    const generators = [
+        () => {
+            const p = utils.getRandomInt(12, 30);
+            const ip = utils.ipToLong(utils.getRandomIp());
+            const net = utils.longToIp(utils.getNetwork(ip, p));
+            const f = utils.longToIp(utils.getNetwork(ip, p) + 1);
+            const l = utils.longToIp(utils.getBroadcast(ip, p) - 1);
+            return { q: `What is the valid host range for subnet ${net} /${p}?`, a: `${f} - ${l}` };
+        },
+        () => {
+            const p = utils.getRandomInt(24, 30);
+            const m = utils.longToIp(utils.getMask(p));
+            const ip = utils.ipToLong(utils.getRandomIp());
+            const net = utils.longToIp(utils.getNetwork(ip, p));
+            return { q: `What is the broadcast address for subnet ${net} with mask ${m}?`, a: utils.longToIp(utils.getBroadcast(ip, p)) };
+        },
+        () => {
+            const p = utils.getRandomInt(18, 30);
+            const ip = utils.ipToLong(utils.getRandomIp());
+            const net = utils.longToIp(utils.getNetwork(ip, p));
+            return { q: `What is the last valid host address on the subnet ${net} /${p}?`, a: utils.longToIp(utils.getBroadcast(ip, p) - 1) };
+        },
+        () => {
+            const p = utils.getRandomInt(24, 30);
+            const ipStr = utils.getRandomIp();
+            const net = utils.longToIp(utils.getNetwork(utils.ipToLong(ipStr), p));
+            return { q: `Which subnet does host ${ipStr} /${p} belong to?`, a: net };
+        },
+        () => {
+            const baseIp = "172.16.0.0", baseP = 16, subP = 20;
+            const ipLong = utils.ipToLong(baseIp);
+            const nth = utils.getRandomInt(1, 10);
+            const target = ipLong + (nth * Math.pow(2, 32 - subP));
+            return {
+                q: `You need to assign your router the first usable host address on the ${utils.getOrdinal(nth)} subnet of network ${baseIp} /${subP}. What address would you use?`,
+                a: utils.longToIp(target + 1)
+            };
+        },
+        () => {
+            const p = utils.getRandomInt(24, 29);
+            const subnets = Math.pow(2, p - 24);
+            const hosts = Math.pow(2, 32 - p) - 2;
+            return {
+                q: `How many subnets and host per subnet can you get from a Class C network with mask ${utils.longToIp(utils.getMask(p))}?`,
+                a: `${subnets} subnets and ${hosts} hosts`
+            };
+        }
+    ];
+
+    function next() {
+        const exercise = generators[utils.getRandomInt(0, generators.length - 1)]();
+        document.getElementById('question').innerText = exercise.q;
+        document.getElementById('answer').innerText = exercise.a;
+        document.getElementById('answer-container').classList.remove('visible');
+    }
+
+    document.getElementById('show-btn').addEventListener('click', () => {
+        document.getElementById('answer-container').classList.add('visible');
+    });
+
+    document.getElementById('next-btn').addEventListener('click', next);
+
+    window.onload = next;
+</script>
+</body>
+</html>
