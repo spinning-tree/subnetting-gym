@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,7 +20,6 @@
         }
 
         body {
-            /* System font stack for Material look without external dependencies */
             font-family: 'Roboto', 'Segoe UI', 'San Francisco', system-ui, -apple-system, sans-serif;
             background-color: var(--bg-color);
             color: var(--on-surface);
@@ -224,56 +223,61 @@
             return (this.getNetwork(ipLong, prefix) | this.getWildcard(prefix)) >>> 0;
         },
         getOrdinal(n) {
-            const s = ["th", "st", "nd", "rd"], v = n % 100;
-            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+            return n + 'ª';
         }
     };
 
     const generators = [
+        // Rango de hosts válido CIDR
         () => {
             const p = utils.getRandomInt(12, 30);
             const ip = utils.ipToLong(utils.getRandomIp());
-            const net = utils.longToIp(utils.getNetwork(ip, p));
-            const f = utils.longToIp(utils.getNetwork(ip, p) + 1);
+            const netLong = utils.getNetwork(ip, p);
+            const f = utils.longToIp(netLong + 1);
             const l = utils.longToIp(utils.getBroadcast(ip, p) - 1);
-            return { q: `What is the valid host range for subnet ${net} /${p}?`, a: `${f} - ${l}` };
+            return { q: `¿Cuál es el rango de hosts válidos para la subred ${utils.longToIp(netLong)} /${p}?`, a: `${f} - ${l}` };
         },
+        // Broadcast address con máscara
         () => {
             const p = utils.getRandomInt(24, 30);
             const m = utils.longToIp(utils.getMask(p));
             const ip = utils.ipToLong(utils.getRandomIp());
-            const net = utils.longToIp(utils.getNetwork(ip, p));
-            return { q: `What is the broadcast address for subnet ${net} with mask ${m}?`, a: utils.longToIp(utils.getBroadcast(ip, p)) };
+            const netLong = utils.getNetwork(ip, p);
+            return { q: `¿Cuál es la dirección de broadcast para la subred ${utils.longToIp(netLong)} con máscara ${m}?`, a: utils.longToIp(utils.getBroadcast(ip, p)) };
         },
+        // Último host válido
         () => {
             const p = utils.getRandomInt(18, 30);
             const ip = utils.ipToLong(utils.getRandomIp());
-            const net = utils.longToIp(utils.getNetwork(ip, p));
-            return { q: `What is the last valid host address on the subnet ${net} /${p}?`, a: utils.longToIp(utils.getBroadcast(ip, p) - 1) };
+            const netLong = utils.getNetwork(ip, p);
+            return { q: `¿Cuál es la última dirección de host válida en la subred ${utils.longToIp(netLong)} /${p}?`, a: utils.longToIp(utils.getBroadcast(ip, p) - 1) };
         },
+        // A qué subred pertenece el host
         () => {
             const p = utils.getRandomInt(24, 30);
             const ipStr = utils.getRandomIp();
             const net = utils.longToIp(utils.getNetwork(utils.ipToLong(ipStr), p));
-            return { q: `Which subnet does host ${ipStr} /${p} belong to?`, a: net };
+            return { q: `¿A qué subred pertenece el host ${ipStr} /${p}?`, a: net };
         },
+        // N-th subnet (Ambigüedad de máscara base resuelta)
         () => {
-            const baseIp = "172.16.0.0", baseP = 16, subP = 20;
+            const baseIp = "172.16.0.0", baseP = 16, subP = utils.getRandomInt(18, 24);
             const ipLong = utils.ipToLong(baseIp);
             const nth = utils.getRandomInt(1, 10);
-            const target = ipLong + (nth * Math.pow(2, 32 - subP));
+            const target = ipLong + ((nth - 1) * Math.pow(2, 32 - subP));
             return {
-                q: `You need to assign your router the first usable host address on the ${utils.getOrdinal(nth)} subnet of network ${baseIp} /${subP}. What address would you use?`,
+                q: `Necesitas asignar a tu router la primera dirección de host utilizable en la ${utils.getOrdinal(nth)} subred de la red ${baseIp}/${baseP} dividida en subredes /${subP}. ¿Qué dirección usarías?`,
                 a: utils.longToIp(target + 1)
             };
         },
+        // Subredes y hosts en Clase C (Rango p ajustado de 25 a 30)
         () => {
-            const p = utils.getRandomInt(24, 29);
+            const p = utils.getRandomInt(25, 30);
             const subnets = Math.pow(2, p - 24);
             const hosts = Math.pow(2, 32 - p) - 2;
             return {
-                q: `How many subnets and host per subnet can you get from a Class C network with mask ${utils.longToIp(utils.getMask(p))}?`,
-                a: `${subnets} subnets and ${hosts} hosts`
+                q: `¿Cuántas subredes y hosts por subred puedes obtener de una red de Clase C con máscara ${utils.longToIp(utils.getMask(p))}?`,
+                a: `${subnets} subredes y ${hosts} hosts`
             };
         }
     ];
