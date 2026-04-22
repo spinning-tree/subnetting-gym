@@ -6,7 +6,6 @@
     <title>subnetting-gym</title>
     <style>
         :root {
-            /* Material Design 3 Dark Theme - Vanilla CSS */
             --bg-color: #1a1c1e;
             --surface: #2d3033;
             --on-surface: #e2e2e6;
@@ -20,7 +19,7 @@
         }
 
         body {
-            font-family: 'Roboto', 'Segoe UI', 'San Francisco', system-ui, -apple-system, sans-serif;
+            font-family: 'Roboto', 'Segoe UI', system-ui, sans-serif;
             background-color: var(--bg-color);
             color: var(--on-surface);
             margin: 0;
@@ -171,7 +170,7 @@
     <div class="card">
         <header>
             <h1>subnetting-gym</h1>
-            <span class="author">spinning-tree</span>
+            <span class="author">spinning-tree | boundary-fix</span>
         </header>
 
         <div class="question-box">
@@ -193,12 +192,18 @@
 <script>
     const utils = {
         ipToLong(ip) {
-            return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+            return ip.split('.').reduce((acc, octet) => (acc * 256) + parseInt(octet, 10), 0) >>> 0;
         },
         longToIp(long) {
-            return [(long >>> 24) & 255, (long >>> 16) & 255, (long >>> 8) & 255, long & 255].join('.');
+            return [
+                (long >>> 24) & 255,
+                (long >>> 16) & 255,
+                (long >>> 8) & 255,
+                long & 255
+            ].join('.');
         },
         getMask(prefix) {
+            if (prefix === 0) return 0;
             return (0xFFFFFFFF << (32 - prefix)) >>> 0;
         },
         getWildcard(prefix) {
@@ -228,55 +233,74 @@
     };
 
     const generators = [
-        // Rango de hosts válido CIDR
+        // Rango de hosts válido
         () => {
-            const p = utils.getRandomInt(12, 30);
-            const ip = utils.ipToLong(utils.getRandomIp());
-            const netLong = utils.getNetwork(ip, p);
-            const f = utils.longToIp(netLong + 1);
-            const l = utils.longToIp(utils.getBroadcast(ip, p) - 1);
-            return { q: `¿Cuál es el rango de hosts válidos para la subred ${utils.longToIp(netLong)} /${p}?`, a: `${f} - ${l}` };
+            const p = utils.getRandomInt(16, 30);
+            const ipLong = utils.ipToLong(utils.getRandomIp());
+            const netLong = utils.getNetwork(ipLong, p);
+            const broadLong = utils.getBroadcast(ipLong, p);
+            if (p >= 31) return generators[0](); 
+            return { 
+                q: `¿Cuál es el rango de hosts válidos para la subred ${utils.longToIp(netLong)} /${p}?`, 
+                a: `${utils.longToIp(netLong + 1)} - ${utils.longToIp(broadLong - 1)}` 
+            };
         },
-        // Broadcast address con máscara
+        // Dirección de Broadcast
         () => {
-            const p = utils.getRandomInt(24, 30);
-            const m = utils.longToIp(utils.getMask(p));
-            const ip = utils.ipToLong(utils.getRandomIp());
-            const netLong = utils.getNetwork(ip, p);
-            return { q: `¿Cuál es la dirección de broadcast para la subred ${utils.longToIp(netLong)} con máscara ${m}?`, a: utils.longToIp(utils.getBroadcast(ip, p)) };
+            const p = utils.getRandomInt(18, 30);
+            const ipLong = utils.ipToLong(utils.getRandomIp());
+            const broadLong = utils.getBroadcast(ipLong, p);
+            return { 
+                q: `¿Cuál es la dirección de broadcast para la subred que contiene al host ${utils.longToIp(ipLong)} /${p}?`, 
+                a: utils.longToIp(broadLong) 
+            };
         },
         // Último host válido
         () => {
-            const p = utils.getRandomInt(18, 30);
-            const ip = utils.ipToLong(utils.getRandomIp());
-            const netLong = utils.getNetwork(ip, p);
-            return { q: `¿Cuál es la última dirección de host válida en la subred ${utils.longToIp(netLong)} /${p}?`, a: utils.longToIp(utils.getBroadcast(ip, p) - 1) };
-        },
-        // A qué subred pertenece el host
-        () => {
-            const p = utils.getRandomInt(24, 30);
-            const ipStr = utils.getRandomIp();
-            const net = utils.longToIp(utils.getNetwork(utils.ipToLong(ipStr), p));
-            return { q: `¿A qué subred pertenece el host ${ipStr} /${p}?`, a: net };
-        },
-        // N-th subnet (Ambigüedad de máscara base resuelta)
-        () => {
-            const baseIp = "172.16.0.0", baseP = 16, subP = utils.getRandomInt(18, 24);
-            const ipLong = utils.ipToLong(baseIp);
-            const nth = utils.getRandomInt(1, 10);
-            const target = ipLong + ((nth - 1) * Math.pow(2, 32 - subP));
-            return {
-                q: `Necesitas asignar a tu router la primera dirección de host utilizable en la ${utils.getOrdinal(nth)} subred de la red ${baseIp}/${baseP} dividida en subredes /${subP}. ¿Qué dirección usarías?`,
-                a: utils.longToIp(target + 1)
+            const p = utils.getRandomInt(12, 30);
+            const ipLong = utils.ipToLong(utils.getRandomIp());
+            const broadLong = utils.getBroadcast(ipLong, p);
+            return { 
+                q: `¿Cuál es la última dirección de host válida en la subred ${utils.longToIp(utils.getNetwork(ipLong, p))} /${p}?`, 
+                a: utils.longToIp(broadLong - 1) 
             };
         },
-        // Subredes y hosts en Clase C (Rango p ajustado de 25 a 30)
+        // Red a la que pertenece el host
+        () => {
+            const p = utils.getRandomInt(12, 29);
+            const ipStr = utils.getRandomIp();
+            const net = utils.longToIp(utils.getNetwork(utils.ipToLong(ipStr), p));
+            return { 
+                q: `¿A qué subred pertenece el host ${ipStr} /${p}?`, 
+                a: net 
+            };
+        },
+        // N-ésima subred (Fix: Limitar nth al rango válido de subredes)
+        () => {
+            const baseIps = ["10.0.0.0", "172.16.0.0", "192.168.0.0"];
+            const baseIp = baseIps[utils.getRandomInt(0, 2)];
+            const baseP = baseIp.startsWith("10") ? 8 : (baseIp.startsWith("172") ? 16 : 24);
+            const subP = utils.getRandomInt(baseP + 1, Math.min(baseP + 8, 30));
+            
+            // Máximo de subredes posibles dentro del rango base
+            const maxSubnets = Math.pow(2, subP - baseP);
+            // nth no puede ser mayor que maxSubnets
+            const nth = utils.getRandomInt(1, Math.min(maxSubnets, 64));
+            
+            const blockSize = Math.pow(2, 32 - subP);
+            const targetNet = utils.ipToLong(baseIp) + ((nth - 1) * blockSize);
+            return {
+                q: `En la red ${baseIp}/${baseP}, ¿cuál es la primera dirección de host utilizable de la ${utils.getOrdinal(nth)} subred si usamos una máscara /${subP}?`,
+                a: utils.longToIp(targetNet + 1)
+            };
+        },
+        // Conteo de subredes y hosts
         () => {
             const p = utils.getRandomInt(25, 30);
             const subnets = Math.pow(2, p - 24);
             const hosts = Math.pow(2, 32 - p) - 2;
             return {
-                q: `¿Cuántas subredes y hosts por subred puedes obtener de una red de Clase C con máscara ${utils.longToIp(utils.getMask(p))}?`,
+                q: `Dada una red de Clase C dividida con máscara /${p}, ¿cuántas subredes se crean y cuántos hosts por subred hay disponibles?`,
                 a: `${subnets} subredes y ${hosts} hosts`
             };
         }
